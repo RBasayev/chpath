@@ -47,11 +47,14 @@ type crumb struct {
 	Mode       int64
 }
 
-var owner, group, mode, target string
-var help, reach bool
+var owner, group, mode, target, Version string
+var ver, help, reach bool
 var bread []crumb // populated in parsePath()
 
 func initialize() {
+	flag.BoolVar(&ver, "v", false, "show version")
+	flag.BoolVar(&ver, "version", false, "")
+
 	flag.BoolVar(&help, "h", false, "display Help")
 	flag.BoolVar(&help, "help", false, "")
 
@@ -134,6 +137,11 @@ func main() {
 	if help {
 		usage = strings.ReplaceAll(usage, "```", "")
 		fmt.Println(usage)
+		os.Exit(0)
+	}
+
+	if ver {
+		fmt.Printf("chpath version:\n0.1.%s\n", Version)
 		os.Exit(0)
 	}
 
