@@ -9,8 +9,12 @@ A tool designed to change permissions or/and ownership along the path.
 ## Paths
 ```
   Path can be absolute or relative.
+
   Only ONE path will be processed.
-  Before processing, the path is sanitized: symlinks will be resolved, . and .. will be resolved etc. For example, the path '/a/b/c/S/../d/e' will become '/a/b/c/d/e'; the directory S will not be processed, even if it exists.
+
+  Before processing, the path is sanitized: symlinks will be resolved, . and .. will be
+resolved etc. For example, the path '/a/b/c/S/../d/e' will become '/a/b/c/d/e'; the
+directory S will not be processed, even if it exists.
 
   The top-level directory will always be skipped - as a safety measure. I.e., in the path:
      /nfs_exports/appOne/config/main.conf
@@ -21,17 +25,18 @@ A tool designed to change permissions or/and ownership along the path.
 
 ## Action Flags and Their Arguments
 ```
-  Every action flag may be specified only once. Strictly speaking, it can be specified multiple times, but then only the last occurrence is considered.
+  Every action flag may be specified only once. Strictly speaking, it can be specified multiple
+times, but then only the last occurrence is considered.
 
 
        |                  |
  flag  |  flag arguments  |
        |                  |
-
+       |                  |
 -h
 --help                       Display this Help and exit.
-
-
+       |                  |
+       |                  |
 -r
 --reach                      Adjust the mode to make the target "reachable", basically,
                              add 'x' along the path and add 'r' to the target (also 'x', if
@@ -42,8 +47,8 @@ A tool designed to change permissions or/and ownership along the path.
 
                              Example:
                              chpath --reach /opt/java_apps/RAM-Optimizer/logs/npe.log
-
-
+       |                  |
+       |                  |
 -m
 --mode                       Change the mode of all the elements in the path (after sanitizing).
                              Special bits (setuid etc.) are not (and will never be) implemented.
@@ -71,7 +76,6 @@ A tool designed to change permissions or/and ownership along the path.
                               +    =1=>     =2=>          =3=> =4=>
                              /opt/java_apps/RAM-Optimizer/logs/npe.log
                               -        <=4=          <=3= <=2=    <=1=
-
 
 
                  r           Apply the READ permission.
