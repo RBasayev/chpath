@@ -31,7 +31,7 @@ jobs:
 
     - name: Create Release
       run: |
-          ver=$(./chpath | tail -1)
+          ver=$(./chpath -v | tail -1)
           echo "Detected version $ver"
           tar czf chpath.lin64.tgz chpath
           env GITHUB_TOKEN=${{ secrets.RELEASE_KEY }} hub release create \
