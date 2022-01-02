@@ -1,5 +1,22 @@
 
-A tool designed to change permissions or/and ownership along the path.
+A tool designed to change permissions or/and ownership along the path. Like this:
+```
+root@lh# chpath --mode og-xw /opt/java_apps/RAM-Optimizer/logs/npe.log
+Skipping the first-level directory '/opt'.
+changing mode 777 to 744 :    /opt/java_apps/RAM-Optimizer/logs/npe.log
+changing mode 777 to 744 :    /opt/java_apps/RAM-Optimizer/logs
+changing mode 777 to 744 :    /opt/java_apps/RAM-Optimizer
+changing mode 777 to 744 :    /opt/java_apps
+
+root@lh# chpath --reach /opt/java_apps/RAM-Optimizer/logs/npe.log
+Setting permissions to reach
+     /opt/java_apps/RAM-Optimizer/logs/npe.log
+Skipping the first-level directory '/opt'.
+changing mode 744 to 755 :    /opt/java_apps
+changing mode 744 to 755 :    /opt/java_apps/RAM-Optimizer
+changing mode 744 to 755 :    /opt/java_apps/RAM-Optimizer/logs
+skipping, is 744 already :    /opt/java_apps/RAM-Optimizer/logs/npe.log
+```
 
 ## Usage
 ```
@@ -30,14 +47,10 @@ directory S will not be processed, even if it exists.
 times, but then only the last occurrence is considered.
 
 
-       |                  |
- flag  |  flag arguments  |
-       |                  |
-       |                  |
 -h
 --help                       Display this Help and exit.
-       |                  |
-       |                  |
+
+
 -r
 --reach                      Adjust the mode to make the target "reachable", basically,
                              add 'x' along the path and add 'r' to the target (also 'x', if
@@ -48,8 +61,8 @@ times, but then only the last occurrence is considered.
 
                              Example:
                              chpath --reach /opt/java_apps/RAM-Optimizer/logs/npe.log
-       |                  |
-       |                  |
+
+
 -m
 --mode                       Change the mode of all the elements in the path (after sanitizing).
                              Special bits (setuid etc.) are not (and will never be) implemented.
@@ -71,7 +84,7 @@ times, but then only the last occurrence is considered.
 
                + / -         '+' adds the permissions, '-' removes them. If both are specified
                              (which makes no sense, but is not detected as an error) '+' wins.
-                             When processiong '+', chpath goes along the path from left to right,
+                             When processing '+', chpath goes along the path from left to right,
                              and it goes from right to left, when processing '-'.
 
                               +    =1=>     =2=>          =3=> =4=>
