@@ -18,7 +18,8 @@ directory S will not be processed, even if it exists.
 
   The top-level directory will always be skipped - as a safety measure. I.e., in the path:
      /nfs_exports/appOne/config/main.conf
-     |<-skipped->|<------processed------>|
+     |           |             |<-target->|
+     |<-skipped->|<------processed------->|
   
   The last element in the path is considered a TARGET.
 ```
