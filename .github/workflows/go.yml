@@ -21,8 +21,8 @@ jobs:
     - name: Build
       run: |
         TS=$(date +%y%m%d.%H%M%S)
-        go build -ldflags "-X main.Version=$TS" chpath.go
-        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o chpath.mac -ldflags "-X main.Version=$TS" chpath.go
+        go build -o chpath -ldflags "-X main.Version=$TS"
+        CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o chpath.mac -ldflags "-X main.Version=$TS"
 
     - name: Strip Linux Binary
       run: strip chpath

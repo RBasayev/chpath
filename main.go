@@ -130,8 +130,7 @@ func parsePath() {
 			continue
 		}
 
-		var current string
-		current = "/" + strings.Join(elements[0:i+1], "/")
+		current := "/" + strings.Join(elements[0:i+1], "/")
 
 		bread = append(bread, getCrumb(current))
 	}
@@ -151,13 +150,6 @@ func setMode(newMode int64, oldMode int64, filePath string) {
 		check(os.Chmod(filePath, fs.FileMode(newMode)))
 	}
 
-}
-
-func doReach() {
-	mode = "a+XR"
-	doMode()
-	// --reach is not supposed to be used with other flags, exiting
-	os.Exit(0)
 }
 
 func calculateShifts() []int {
@@ -202,6 +194,7 @@ func calculateMode() (int, bool, bool) {
 	} else if strings.Contains(mode, "X") {
 		// "else if" because we can't add 1 for both x and X
 		pattern += 1
+		resultBigX = true
 	}
 	if pattern == 0 {
 		fmt.Println("The --mode value (", mode, ") does not specify permissions (rwxX).")
@@ -319,4 +312,12 @@ func doMode() {
 		os.Exit(43)
 	}
 
+}
+
+func doReach() {
+	fmt.Println("Setting permissions to reach\n    ", target)
+	mode = "a+XR"
+	doMode()
+	// --reach is not supposed to be used with other flags, exiting
+	os.Exit(0)
 }
