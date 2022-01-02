@@ -21,24 +21,6 @@ func check(err error) {
 	}
 }
 
-/*
-const (
-	// iota begins at 0
-	// Also, not a very intuitive syntax, but basically
-	// the constants will all be initialized with '1 << (1 * iota)'
-	// and iota is increasing with every usage.
-	Ox int64 = 1 << (1 * iota)
-	Ow
-	Or
-	Gx
-	Gw
-	Gr
-	Ux
-	Uw
-	Ur
-)
-*/
-
 type crumb struct {
 	Level      int
 	PathArg    string
@@ -75,6 +57,32 @@ func initialize() {
 	t := flag.Arg(0)
 
 	target, _ = filepath.Abs(t)
+}
+
+func main() {
+
+	initialize()
+
+	if help {
+		usage = strings.ReplaceAll(usage, "```", "")
+		fmt.Println(usage)
+		os.Exit(0)
+	}
+
+	if ver {
+		fmt.Printf("chpath version:\n0.2.%s\n", Version)
+		os.Exit(0)
+	}
+
+	if reach {
+		doReach()
+		// this one exits at the end
+	}
+
+	if mode != "" {
+		doMode()
+	}
+
 }
 
 func getCrumb(dirtyPath string) crumb {
@@ -130,86 +138,61 @@ func parsePath() {
 
 }
 
-func main() {
-
-	initialize()
-
-	if help {
-		usage = strings.ReplaceAll(usage, "```", "")
-		fmt.Println(usage)
-		os.Exit(0)
-	}
-
-	if ver {
-		fmt.Printf("chpath version:\n0.1.%s\n", Version)
-		os.Exit(0)
-	}
-
-	if reach {
-		doReach()
-		// this one exits at the end
-	}
-
-	if mode != "" {
-		doMode()
+func setMode(newMode int64, oldMode int64, filePath string) {
+	modeFrom := strconv.FormatInt(oldMode, 8)
+	modeTo := strconv.FormatInt(newMode, 8)
+	// fmt.Printf("- from: %09s\n", strconv.FormatInt(int64(oldMode), 2))
+	// fmt.Printf("-   to: %09s\n", strconv.FormatInt(int64(newMode), 2))
+	if modeFrom == modeTo {
+		fmt.Println("skipping, is", modeFrom, "already :   ", filePath)
+	} else {
+		fmt.Println("changing mode", modeFrom, "to", modeTo, ":   ", filePath)
+		// actually modifying the permission
+		check(os.Chmod(filePath, fs.FileMode(newMode)))
 	}
 
 }
 
 func doReach() {
-	// reach is the simplest operation, will also exit here
-
-	parsePath()
-
-	j := len(bread)
-	for _, val := range bread {
-		setTo := val.Mode
-		if j == 1 {
-			// the last element, i.e. target, always needs r (0x444=292)
-			setTo |= 292
-		}
-		if val.IsDir {
-			// x needs to be set, regardless of whether this is path or target (0x111=73)
-			setTo |= 73
-		}
-		check(os.Chmod(val.PathActual, fs.FileMode(setTo)))
-
-		setToStr := strconv.FormatInt(setTo, 8)
-		fmt.Println("set to", setToStr, ":   ", val.PathActual)
-
-		j--
-	}
-
+	mode = "a+XR"
+	doMode()
 	// --reach is not supposed to be used with other flags, exiting
 	os.Exit(0)
 }
 
-func doMode() {
-	var shifts []int
-	var pattern, effPerm int
-	var bigX bool
-
+func calculateShifts() []int {
+	var result []int
 	// the values are basically the left shift x3 of the specified 'rwxX' pattern
 	if strings.Contains(mode, "a") {
-		shifts = []int{0, 1, 2}
+		result = []int{0, 1, 2}
 	} else {
 		if strings.Contains(mode, "u") {
-			shifts = []int{2}
+			result = []int{2}
 		}
 		if strings.Contains(mode, "g") {
-			shifts = append(shifts, 1)
+			result = append(result, 1)
 		}
 		if strings.Contains(mode, "o") {
-			shifts = append(shifts, 0)
+			result = append(result, 0)
 		}
 	}
-	if len(shifts) < 1 {
+	if len(result) < 1 {
 		fmt.Println("The --mode value (", mode, ") does not contain any of the 'ugoa' instructions.")
 		os.Exit(41)
 	}
 
+	return result
+}
+
+func calculateMode() (int, bool, bool) {
+	var pattern, resultMode int
+	var resultBigX, resultBigR bool // defaults to 'false'
+
 	if strings.Contains(mode, "r") {
 		pattern += 4 // binary ..100
+	} else if strings.Contains(mode, "R") {
+		// undocumented parameter, used for --reach
+		resultBigR = true
 	}
 	if strings.Contains(mode, "w") {
 		pattern += 2 // binary ...10
@@ -217,9 +200,8 @@ func doMode() {
 	if strings.Contains(mode, "x") {
 		pattern += 1 // binary ....1
 	} else if strings.Contains(mode, "X") {
-		// can't add 1 for both x and X
+		// "else if" because we can't add 1 for both x and X
 		pattern += 1
-		bigX = true
 	}
 	if pattern == 0 {
 		fmt.Println("The --mode value (", mode, ") does not specify permissions (rwxX).")
@@ -227,90 +209,111 @@ func doMode() {
 	}
 
 	// effective permissions
-	for _, multiplier := range shifts {
+	for _, multiplier := range calculateShifts() {
 		/*	pattern = XXX
 			XXX << (0 * 3) = 000 000 XXX
 			XXX << (1 * 3) = 000 XXX 000
 			XXX << (2 * 3) = XXX 000 000
 			        SUM    = XXX XXX XXX
 		*/
-		effPerm += pattern << (multiplier * 3)
+		resultMode += pattern << (multiplier * 3)
 	}
 
+	return resultMode, resultBigX, resultBigR
+}
+
+func addMode() {
+	var appendMask int
+	var bigX, bigR bool
+
+	appendMask, bigX, bigR = calculateMode()
+
+	elements := strings.Split(strings.TrimPrefix(target, "/"), "/")
+
+	if len(elements) < 2 {
+		fmt.Println("This tool is BY DESIGN not changing top-level directories (such as /bin, /home, /proc). The path provided (", target, ") seems to consist of only one level.")
+		os.Exit(32)
+	}
+
+	var currentPath string
+	var thisCrumb crumb
+	for i := range elements {
+		// work the path from LEFT to RIGHT
+		if i == 0 {
+			fmt.Printf("Skipping the first-level directory '/%s'.\n", elements[i])
+			currentPath = "/" + elements[i]
+			continue
+		}
+		currentPath += "/" + elements[i]
+		thisCrumb = getCrumb(currentPath)
+
+		effectiveMode := thisCrumb.Mode
+		if i == (len(elements) - 1) {
+			// the last element (LEFT to RIGHT), i.e. target
+			if !thisCrumb.IsDir && bigX {
+				// if target is a file and the permission is X (not x)
+				// we need to remove execute from the mask
+				// bit clear (AND NOT) 001 001 001
+				appendMask &^= 73
+			}
+			if bigR {
+				// if --reach, we need to make the target readable
+				// bit add (bitwise OR)
+				appendMask |= 292
+			}
+		}
+		// all other elements are directories by definition, so X=x
+		// bit add (bitwise OR)
+		effectiveMode |= int64(appendMask)
+		setMode(effectiveMode, thisCrumb.Mode, thisCrumb.PathActual)
+		// fmt.Printf("- mask: %09s\n", strconv.FormatInt(int64(appendMask), 2))
+
+		// not 100% sure whether this is required
+		currentPath = thisCrumb.PathActual
+
+	}
+
+}
+
+func delMode() {
+	var negativeMask int
+	var bigX bool
+
+	negativeMask, bigX, _ = calculateMode()
+
+	// work the path from RIGHT to LEFT
+	parsePath()
+	size := len(bread)
+
+	for i := 1; i <= size; i++ {
+		thisCrumb := bread[size-i]
+		effectiveMode := thisCrumb.Mode
+		// unlike addMode(), we can't change the mask variable directly, copying
+		subtractMask := negativeMask
+		if i == 1 {
+			// the first element (RIGHT to LEFT), i.e. target
+			if !thisCrumb.IsDir && bigX {
+				// if target is a file and the permission is X (not x)
+				// we need to remove execute from the mask
+				// bit clear (AND NOT) 001 001 001
+				subtractMask &^= 73
+			}
+		}
+		// all other elements are directories by definition, so X=x
+		// bit clear (AND NOT)
+		effectiveMode &^= int64(subtractMask)
+		setMode(effectiveMode, thisCrumb.Mode, thisCrumb.PathActual)
+		// fmt.Printf("- mask: %09s\n", strconv.FormatInt(int64(subtractMask), 2))
+
+	}
+}
+
+func doMode() {
+
 	if strings.Contains(mode, "+") {
-
-		elements := strings.Split(strings.TrimPrefix(target, "/"), "/")
-
-		if len(elements) < 2 {
-			fmt.Println("This tool is BY DESIGN not changing top-level directories (such as /bin, /home, /proc). The path provided (", target, ") seems to consist of only one level.")
-			os.Exit(32)
-		}
-
-		var currentPath string
-		var currentCrumb crumb
-		for i := range elements {
-			// work the path from LEFT to RIGHT
-			if i == 0 {
-				fmt.Printf("Skipping the first-level directory '/%s'.\n", elements[i])
-				currentPath = "/" + elements[i]
-				continue
-			}
-			currentPath += "/" + elements[i]
-			currentCrumb = getCrumb(currentPath)
-
-			setTo := currentCrumb.Mode
-			if i == (len(elements) - 1) {
-				// the last element, i.e. target
-				if !currentCrumb.IsDir && bigX {
-					// if target is a file and the permission is X (not x)
-					effPerm--
-				}
-			}
-			// every other element is a directory by definition, so X=x
-			setTo |= int64(effPerm)
-			modeFrom := strconv.FormatInt(currentCrumb.Mode, 8)
-			modeTo := strconv.FormatInt(setTo, 8)
-			if modeFrom == modeTo {
-				fmt.Println("skipping, is", modeFrom, "already :   ", currentCrumb.PathActual)
-			} else {
-				fmt.Println("changing mode", modeFrom, "to", modeTo, ":   ", currentCrumb.PathActual)
-				// actually modifying the permission
-				check(os.Chmod(currentCrumb.PathActual, fs.FileMode(setTo)))
-			}
-
-			// not 100% sure whether this is required
-			currentPath = currentCrumb.PathActual
-
-		}
-
+		addMode()
 	} else if strings.Contains(mode, "-") {
-		// work the path from RIGHT to LEFT
-		parsePath()
-		size := len(bread)
-
-		for j := 1; j <= size; j++ {
-			crumb := bread[size-j]
-			setTo := crumb.Mode
-			if j == 1 {
-				// the last element, i.e. target
-				if !crumb.IsDir && bigX {
-					// if target is a file and the permission is X (not x)
-					effPerm--
-				}
-			}
-			// every other element is a directory by definition, so X=x
-			setTo &^= int64(effPerm)
-			modeFrom := strconv.FormatInt(crumb.Mode, 8)
-			modeTo := strconv.FormatInt(setTo, 8)
-			if modeFrom == modeTo {
-				fmt.Println("skipping, is", modeFrom, "already :   ", crumb.PathActual)
-			} else {
-				fmt.Println("changing mode", modeFrom, "to", modeTo, ":   ", crumb.PathActual)
-				// actually modifying the permission
-				check(os.Chmod(crumb.PathActual, fs.FileMode(setTo)))
-			}
-
-		}
+		delMode()
 	} else {
 		fmt.Println("The --mode value (", mode, ") does not specify an action (+/-).")
 		os.Exit(43)
