@@ -51,6 +51,10 @@ times, but then only the last occurrence is considered.
 --help                       Display this Help and exit.
 
 
+-v
+--version                    Display the version and exit.
+
+
 -r
 --reach                      Adjust the mode to make the target "reachable", basically,
                              add 'x' along the path and add 'r' to the target (also 'x', if
@@ -107,6 +111,44 @@ times, but then only the last occurrence is considered.
                              Examples:
                              chpath --mode go-w /opt/java_apps/RAM-Optimizer/logs/npe.log
                              chpath --mode o+Xr /opt/java_apps/RAM-Optimizer/logs/npe.log
+
+
+-o
+--owner       username       Change the owner along the path.
+               or uid        The new owner can be specified as username or as its numeric ID.
+                             Specifying the user does not imply group change, it must be
+                             specified explicitly with the next action flag.
+
+-g
+--group         name         Change the group along the path.
+               or gid        The new group can be specified as name or as its numeric ID.
+
+                             Owner and group change follows the path from left to right:
+
+                                   =1=>     =2=>          =3=> =4=>
+                             /opt/java_apps/RAM-Optimizer/logs/npe.log
+
+                             Note: no shorthand syntax is implemented (yet?),
+                                   i.e. something like "owner:group" in chown won't work.
+
+                             Examples:
+                             chpath --owner joe --group users /home/joe/.ssh/id_rsa
+                             chpath --owner 0 /root/backups/june/backup.tgz
+
+
+If multiple actions are specified, this is the order in which they are executed:
+1. --help    (exits regardless of other arguments)
+2. --version (exits regardless of other arguments)
+3. --reach   (exits regardless of other arguments)
+4. --mode
+5. --owner and --group (always run together)
+
+
+Combined actions example:
+  chpath --owner joe --group staff --mode og-rwx /home/joe/.ssh/id_rsa
+
+This will make sure that Joe owns the path to the SSH key and that no one else has access.
+
 ```
 
 ## Non-Zero Exit Codes
@@ -114,3 +156,10 @@ times, but then only the last occurrence is considered.
   3x - path inconsistencies
   
   4x - mode specification inconsistencies
+
+  5x - user or group problems
+
+
+## TODO
+
+For parameters switch to https://github.com/jessevdk/go-flags

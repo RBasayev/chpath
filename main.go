@@ -44,6 +44,11 @@ func main() {
 		doMode()
 	}
 
+	if (group + owner) != "" {
+		// both at once to avoid iterating the path with Chown twice if both -o and -g are specified
+		doUsers()
+	}
+
 }
 
 func doMode() {
@@ -65,4 +70,18 @@ func doReach() {
 	doMode()
 	// --reach is not supposed to be used with other flags, exiting
 	os.Exit(0)
+}
+
+func doUsers() {
+	var uid, gid = id{-1, "UNCHANGED"}, id{-1, "UNCHANGED"}
+
+	if owner != "" {
+		uid = getUID()
+	}
+
+	if group != "" {
+		gid = getGID()
+	}
+
+	chUsers(uid, gid)
 }
